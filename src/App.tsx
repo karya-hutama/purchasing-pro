@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { AppProvider } from './context/AppContext';
+import { DbNotification } from './components/DbNotification';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Locations } from './pages/Locations';
@@ -43,6 +44,7 @@ export default function App() {
 
   return (
     <AppProvider>
+      <DbNotification />
       <Layout currentPath={currentPath} onNavigate={setCurrentPath}>
         {renderContent()}
       </Layout>
