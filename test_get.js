@@ -1,4 +1,4 @@
-const url = "https://script.google.com/macros/s/AKfycbwQtPv4mSc7Kz7rfSl8QWhgw0HFO46NZ2nbpnFjxeteoVYrtCB7mW0PCaNHReXyb_5SpQ/exec";
+const url = "https://script.google.com/macros/s/AKfycbzZvhbhrOZpfHeJNHmZLdOZ_pLacnhKPBbaN7QYERnt0OZwI0iZNSdLtNyFwaIVlv05_A/exec";
 
 async function test() {
   try {
