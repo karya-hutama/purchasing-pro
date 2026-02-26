@@ -6,7 +6,7 @@ dotenv.config();
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
-const GAS_URL = process.env.VITE_GAS_URL;
+const getGasUrl = () => process.env.VITE_GAS_URL || "https://script.google.com/macros/s/AKfycbzZvhbhrOZpfHeJNHmZLdOZ_pLacnhKPBbaN7QYERnt0OZwI0iZNSdLtNyFwaIVlv05_A/exec";
 
 let cachedData: any = null;
 let fetchPromise: Promise<void> | null = null;
@@ -14,6 +14,7 @@ let lastError: string | null = null;
 
 // Fetch data from Google Sheets and cache it
 const fetchFromGAS = async () => {
+  const GAS_URL = getGasUrl();
   if (!GAS_URL) return;
   
   if (fetchPromise) {
@@ -53,6 +54,7 @@ const fetchFromGAS = async () => {
 fetchFromGAS();
 
 app.get(["/api/data", "/data"], async (req, res) => {
+  const GAS_URL = getGasUrl();
   if (!GAS_URL) {
     return res.json({ error: "URL Google Apps Script belum dikonfigurasi di Vercel Environment Variables (VITE_GAS_URL)." });
   }
@@ -70,6 +72,7 @@ app.get(["/api/data", "/data"], async (req, res) => {
 });
 
 app.post(["/api/sync", "/sync"], async (req, res) => {
+  const GAS_URL = getGasUrl();
   const { action, data } = req.body;
   
   // Optimistically update cache
