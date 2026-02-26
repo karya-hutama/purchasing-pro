@@ -1,6 +1,6 @@
 import { useState, useRef, ChangeEvent, useMemo } from 'react';
 import { useAppContext, SalesData } from '../context/AppContext';
-import { Upload, Download, Search, Filter, TrendingUp, Calendar, Info } from 'lucide-react';
+import { Upload, Download, Search, Filter, TrendingUp, Calendar, Info, Trash2 } from 'lucide-react';
 import { downloadExcel, uploadExcel } from '../utils/excel';
 import { SearchableSelect } from '../components/SearchableSelect';
 
@@ -41,6 +41,13 @@ export const Forecast = () => {
       }
     ];
     downloadExcel(templateData, 'Template_Data_Penjualan');
+  };
+
+  const handleClearData = () => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus semua data penjualan? Data yang dihapus tidak dapat dikembalikan.')) {
+      setSalesData([]);
+      showNotification('success', 'Semua data penjualan berhasil dihapus.');
+    }
   };
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -183,6 +190,10 @@ export const Forecast = () => {
           <button onClick={handleDownloadTemplate} className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
             <Download size={18} />
             <span>Download Template</span>
+          </button>
+          <button onClick={handleClearData} className="flex items-center space-x-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors shadow-sm">
+            <Trash2 size={18} />
+            <span>Hapus Semua Data</span>
           </button>
           <input 
             type="file" 

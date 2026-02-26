@@ -13,7 +13,7 @@ let fetchPromise: Promise<void> | null = null;
 let lastError: string | null = null;
 
 // Fetch data from Google Sheets and cache it
-const fetchFromGAS = async () => {
+const fetchFromGAS = async (force = false) => {
   const GAS_URL = getGasUrl();
   if (!GAS_URL) return;
   
@@ -24,7 +24,13 @@ const fetchFromGAS = async () => {
   fetchPromise = (async () => {
     try {
       console.log("Fetching data from Google Sheets...");
-      const response = await fetch(GAS_URL);
+      const response = await fetch(`${GAS_URL}?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (response.ok) {
         const text = await response.text();
         try {
@@ -59,10 +65,12 @@ app.get(["/api/data", "/data"], async (req, res) => {
     return res.json({ error: "URL Google Apps Script belum dikonfigurasi di Vercel Environment Variables (VITE_GAS_URL)." });
   }
 
-  if (!cachedData) {
-    // If cache is empty, wait for fetch
-    await fetchFromGAS();
-  }
+  // Always fetch fresh data on request
+  await fetchFromGAS(true);
+  
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   
   if (!cachedData) {
     return res.json({ error: lastError || "Gagal mengambil data dari Google Sheets. Pastikan URL sudah benar dan script sudah di-deploy dengan akses 'Anyone'." });

@@ -1,6 +1,12 @@
 export const fetchFromGoogleSheets = async () => {
   try {
-    const response = await fetch('/api/data');
+    const response = await fetch(`/api/data?t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache'
+      }
+    });
     const data = await response.json();
     return data;
   } catch (error) {
