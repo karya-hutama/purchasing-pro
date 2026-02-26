@@ -1,6 +1,6 @@
 import { useState, FormEvent, useRef, ChangeEvent } from 'react';
 import { useAppContext, Item } from '../context/AppContext';
-import { Plus, Edit2, Trash2, Upload, Download, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, Upload, Download, Search, Eye } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { downloadExcel, uploadExcel } from '../utils/excel';
 import { MultiSelect } from '../components/MultiSelect';
@@ -11,6 +11,7 @@ export const Items = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [viewingItem, setViewingItem] = useState<Item | null>(null);
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,6 +30,10 @@ export const Items = () => {
       showNotification('warning', `Barang dengan SKU ${itemToDelete} berhasil dihapus.`);
       setItemToDelete(null);
     }
+  };
+
+  const handleView = (item: Item) => {
+    setViewingItem(item);
   };
 
   const handleEdit = (item: Item) => {
@@ -225,13 +230,8 @@ export const Items = () => {
                 <th className="p-4 font-semibold">Nama Barang</th>
                 <th className="p-4 font-semibold">Kategori</th>
                 <th className="p-4 font-semibold">HPP</th>
-                {locations.map(loc => (
-                  <th key={loc} className="p-4 font-semibold text-center border-l border-gray-200">
-                    {loc} <br/> <span className="text-xs font-normal text-gray-400">(Retail / Reseller)</span>
-                  </th>
-                ))}
                 <th className="p-4 font-semibold border-l border-gray-200">Supplier</th>
-                <th className="p-4 font-semibold text-center w-24">Aksi</th>
+                <th className="p-4 font-semibold text-center w-32">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -241,23 +241,18 @@ export const Items = () => {
                   <td className="p-4 font-medium text-gray-900">{item.name}</td>
                   <td className="p-4 text-gray-600">{item.category}</td>
                   <td className="p-4 text-gray-600">Rp {item.hpp.toLocaleString('id-ID')}</td>
-                  {locations.map(loc => (
-                    <td key={loc} className="p-4 text-center border-l border-gray-100">
-                      <div className="flex flex-col text-sm">
-                        <span className="text-gray-900 font-medium">Rp {item.prices[loc]?.retail?.toLocaleString('id-ID') || '-'}</span>
-                        <span className="text-gray-500 text-xs">Rp {item.prices[loc]?.reseller?.toLocaleString('id-ID') || '-'}</span>
-                      </div>
-                    </td>
-                  ))}
                   <td className="p-4 text-sm text-gray-600 border-l border-gray-100 max-w-[200px] truncate" title={getSupplierNames(item.suppliers)}>
                     {getSupplierNames(item.suppliers)}
                   </td>
                   <td className="p-4">
                     <div className="flex items-center justify-center space-x-2">
-                      <button onClick={() => handleEdit(item)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors">
+                      <button onClick={() => handleView(item)} className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-md transition-colors" title="Lihat Detail Harga">
+                        <Eye size={16} />
+                      </button>
+                      <button onClick={() => handleEdit(item)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Edit Barang">
                         <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDeleteClick(item.sku)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors">
+                      <button onClick={() => handleDeleteClick(item.sku)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Hapus Barang">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -266,7 +261,7 @@ export const Items = () => {
               ))}
               {filteredItems.length === 0 && (
                 <tr>
-                  <td colSpan={6 + locations.length} className="p-8 text-center text-gray-500">
+                  <td colSpan={6} className="p-8 text-center text-gray-500">
                     Tidak ada data barang ditemukan.
                   </td>
                 </tr>
@@ -275,6 +270,64 @@ export const Items = () => {
           </table>
         </div>
       </div>
+
+      {/* View Details Modal */}
+      {viewingItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+              <h2 className="text-xl font-bold text-[#0B2D72]">Detail Harga: {viewingItem.name}</h2>
+              <button type="button" onClick={() => setViewingItem(null)} className="text-gray-400 hover:text-gray-600">
+                &times;
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">SKU</p>
+                  <p className="font-mono font-medium text-gray-900">{viewingItem.sku}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Kategori</p>
+                  <p className="font-medium text-gray-900">{viewingItem.category}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">HPP</p>
+                  <p className="font-medium text-gray-900">Rp {viewingItem.hpp.toLocaleString('id-ID')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Supplier</p>
+                  <p className="font-medium text-gray-900">{getSupplierNames(viewingItem.suppliers) || '-'}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-2">Harga per Lokasi</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {locations.map(loc => (
+                    <div key={loc} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                      <h4 className="font-medium text-[#0B2D72] mb-3">{loc}</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">Retail</span>
+                          <span className="font-medium text-gray-900">Rp {viewingItem.prices[loc]?.retail?.toLocaleString('id-ID') || '0'}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">Reseller</span>
+                          <span className="font-medium text-gray-900">Rp {viewingItem.prices[loc]?.reseller?.toLocaleString('id-ID') || '0'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end bg-gray-50 sticky bottom-0">
+              <button type="button" onClick={() => setViewingItem(null)} className="px-4 py-2 text-white bg-[#0B2D72] rounded-lg hover:bg-blue-800">Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Form (Simplified for prototype) */}
       {isModalOpen && (
