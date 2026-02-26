@@ -84,62 +84,19 @@ interface AppContextType {
   showNotification: (type: 'success' | 'warning', message: string) => void;
 }
 
-const defaultLocations = ['Toko Jakarta', 'Toko Bandung', 'Toko Surabaya'];
+const defaultLocations: StoreLocation[] = [];
 
-const defaultSuppliers: Supplier[] = [
-  { id: 'SUP001', name: 'PT Sumber Makmur', phone: '08123456789', address: 'Jl. Raya No 1', top: 30 },
-  { id: 'SUP002', name: 'CV Maju Jaya', phone: '08987654321', address: 'Jl. Industri No 2', top: 45 },
-  { id: 'SUP003', name: 'UD Bintang Terang', phone: '08567890123', address: 'Jl. Niaga No 3', top: 60 },
-];
+const defaultSuppliers: Supplier[] = [];
 
-const defaultItems: Item[] = [
-  {
-    sku: 'ITM001',
-    name: 'Beras Premium 5kg',
-    category: 'Sembako',
-    hpp: 50000,
-    prices: {
-      'Toko Jakarta': { retail: 60000, reseller: 55000 },
-      'Toko Bandung': { retail: 58000, reseller: 54000 },
-      'Toko Surabaya': { retail: 59000, reseller: 54500 },
-    },
-    suppliers: ['SUP001', 'SUP002'],
-  },
-  {
-    sku: 'ITM002',
-    name: 'Minyak Goreng 2L',
-    category: 'Sembako',
-    hpp: 28000,
-    prices: {
-      'Toko Jakarta': { retail: 35000, reseller: 32000 },
-      'Toko Bandung': { retail: 34000, reseller: 31000 },
-      'Toko Surabaya': { retail: 34500, reseller: 31500 },
-    },
-    suppliers: ['SUP002', 'SUP003'],
-  },
-];
+const defaultItems: Item[] = [];
 
-const defaultPurchases: Purchase[] = [
-  { id: 'PUR001', date: '2023-10-01', location: 'Toko Jakarta', sku: 'ITM001', itemName: 'Beras Premium 5kg', qty: 100, value: 5000000, pricePerQty: 50000, supplierId: 'SUP001' },
-  { id: 'PUR002', date: '2023-10-05', location: 'Toko Bandung', sku: 'ITM002', itemName: 'Minyak Goreng 2L', qty: 200, value: 5600000, pricePerQty: 28000, supplierId: 'SUP002' },
-  { id: 'PUR003', date: '2023-10-10', location: 'Toko Surabaya', sku: 'ITM001', itemName: 'Beras Premium 5kg', qty: 150, value: 7500000, pricePerQty: 50000, supplierId: 'SUP001' },
-  { id: 'PUR004', date: '2023-10-15', location: 'Toko Jakarta', sku: 'ITM002', itemName: 'Minyak Goreng 2L', qty: 300, value: 8400000, pricePerQty: 28000, supplierId: 'SUP003' },
-];
+const defaultPurchases: Purchase[] = [];
 
-const defaultCompetitorList: Competitor[] = [
-  { id: 'C001', name: 'Toko Sebelah', nearLocation: 'Toko Jakarta' },
-  { id: 'C002', name: 'Toko Maju', nearLocation: 'Toko Bandung' }
-];
+const defaultCompetitorList: Competitor[] = [];
 
-const defaultCompetitors: CompetitorPrice[] = [
-  { id: 'COMP001', competitorId: 'C001', competitorName: 'Toko Sebelah', nearLocation: 'Toko Jakarta', productSku: 'ITM001', grade: 'retail', competitorPrice: 59000, ownPrice: 60000, hpp: 50000, pricingIndex: 59000 / 60000 },
-];
+const defaultCompetitors: CompetitorPrice[] = [];
 
-const defaultSalesData: SalesData[] = [
-  { date: '2023-10-01', location: 'Toko Jakarta', sku: 'ITM001', qty: 10 },
-  { date: '2023-10-02', location: 'Toko Jakarta', sku: 'ITM001', qty: 15 },
-  { date: '2023-10-03', location: 'Toko Jakarta', sku: 'ITM001', qty: 12 },
-];
+const defaultSalesData: SalesData[] = [];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -167,18 +124,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           setDbMessage('Database berhasil terhubung!');
           setTimeout(() => setDbStatus('idle'), 3000);
 
-          let hasData = false;
-          
           if (data.locations && data.locations.length > 0) {
             setLocationsState(data.locations.map((l: any) => l.Name));
-            hasData = true;
           }
           if (data.suppliers && data.suppliers.length > 0) {
             setSuppliersState(data.suppliers.map((s: any) => ({
               ...s,
               top: Number(s.top)
             })));
-            hasData = true;
           }
           if (data.items && data.items.length > 0) {
             setItemsState(data.items.map((item: any) => ({
@@ -187,7 +140,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               prices: typeof item.prices === 'string' ? JSON.parse(item.prices) : item.prices,
               suppliers: typeof item.suppliers === 'string' ? JSON.parse(item.suppliers) : item.suppliers,
             })));
-            hasData = true;
           }
           if (data.purchases && data.purchases.length > 0) {
             setPurchasesState(data.purchases.map((p: any) => ({
@@ -196,7 +148,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               value: Number(p.value),
               pricePerQty: Number(p.pricePerQty)
             })));
-            hasData = true;
           }
           if (data.competitors && data.competitors.length > 0) {
             setCompetitorsState(data.competitors.map((c: any) => ({
@@ -206,30 +157,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               hpp: Number(c.hpp),
               pricingIndex: Number(c.pricingIndex)
             })));
-            hasData = true;
           }
           if (data.competitorList && data.competitorList.length > 0) {
             setCompetitorListState(data.competitorList);
-            hasData = true;
           }
           if (data.salesData && data.salesData.length > 0) {
             setSalesDataState(data.salesData.map((s: any) => ({
               ...s,
               qty: Number(s.qty)
             })));
-            hasData = true;
-          }
-
-          if (!hasData) {
-            // Spreadsheet is empty, sync default data to it
-            console.log("Spreadsheet is empty, syncing default data...");
-            syncToGoogleSheets('syncLocations', defaultLocations.map(name => ({ Name: name })));
-            syncToGoogleSheets('syncSuppliers', defaultSuppliers);
-            syncToGoogleSheets('syncItems', defaultItems);
-            syncToGoogleSheets('syncPurchases', defaultPurchases);
-            syncToGoogleSheets('syncCompetitorList', defaultCompetitorList);
-            syncToGoogleSheets('syncCompetitors', defaultCompetitors);
-            syncToGoogleSheets('syncSalesData', defaultSalesData);
           }
         } else if (data && data.error) {
           setDbStatus('error');
