@@ -1,6 +1,6 @@
 import { useState, FormEvent, useRef, ChangeEvent } from 'react';
 import { useAppContext, Purchase } from '../context/AppContext';
-import { Plus, Edit2, Trash2, Upload, Search, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, Upload, Search, Download, X } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { downloadExcel, uploadExcel } from '../utils/excel';
 import { SearchableSelect } from '../components/SearchableSelect';
@@ -14,8 +14,15 @@ export const Purchases = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedLocation, setSelectedLocation] = useState('');
-  const [selectedSku, setSelectedSku] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState('');
+  
+  interface PurchaseItemForm {
+    id: string;
+    sku: string;
+    qty: string;
+    value: string;
+  }
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItemForm[]>([{ id: '1', sku: '', qty: '', value: '' }]);
 
   const filteredPurchases = purchases.filter(p => 
     p.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -38,17 +45,31 @@ export const Purchases = () => {
   const handleEdit = (purchase: Purchase) => {
     setEditingPurchase(purchase);
     setSelectedLocation(purchase.location);
-    setSelectedSku(purchase.sku);
     setSelectedSupplier(purchase.supplierId);
+    setPurchaseItems([{ id: '1', sku: purchase.sku, qty: String(purchase.qty), value: String(purchase.value) }]);
     setIsModalOpen(true);
   };
 
   const handleAdd = () => {
     setEditingPurchase(null);
     setSelectedLocation('');
-    setSelectedSku('');
     setSelectedSupplier('');
+    setPurchaseItems([{ id: '1', sku: '', qty: '', value: '' }]);
     setIsModalOpen(true);
+  };
+
+  const handleAddPurchaseItem = () => {
+    setPurchaseItems([...purchaseItems, { id: Math.random().toString(), sku: '', qty: '', value: '' }]);
+  };
+
+  const handleRemovePurchaseItem = (id: string) => {
+    if (purchaseItems.length > 1) {
+      setPurchaseItems(purchaseItems.filter(item => item.id !== id));
+    }
+  };
+
+  const handlePurchaseItemChange = (id: string, field: keyof PurchaseItemForm, value: string) => {
+    setPurchaseItems(purchaseItems.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
   const handleSave = (e: FormEvent<HTMLFormElement>) => {
@@ -56,38 +77,71 @@ export const Purchases = () => {
     const formData = new FormData(e.currentTarget);
     const date = formData.get('date') as string;
     const location = formData.get('location') as string;
-    const sku = formData.get('sku') as string;
     const supplierId = formData.get('supplierId') as string;
-    const qty = Number(formData.get('qty'));
-    const value = Number(formData.get('value'));
 
-    if (!location || !sku || !supplierId) {
-      alert('Lokasi, Produk, dan Supplier harus dipilih');
+    if (!location || !supplierId) {
+      alert('Lokasi dan Supplier harus dipilih');
       return;
     }
 
-    const item = items.find(i => i.sku === sku);
-    const itemName = item?.name || sku;
-    const pricePerQty = qty > 0 ? value / qty : 0;
-
-    const newPurchase: Purchase = {
-      id: editingPurchase ? editingPurchase.id : `PUR${Date.now()}`,
-      date,
-      location,
-      sku,
-      itemName,
-      qty,
-      value,
-      pricePerQty,
-      supplierId
-    };
-
     if (editingPurchase) {
+      const pItem = purchaseItems[0];
+      if (!pItem.sku) {
+        alert('Produk harus dipilih');
+        return;
+      }
+      const qty = Number(pItem.qty);
+      const value = Number(pItem.value);
+      const item = items.find(i => i.sku === pItem.sku);
+      const itemName = item?.name || pItem.sku;
+      const pricePerQty = qty > 0 ? value / qty : 0;
+
+      const newPurchase: Purchase = {
+        id: editingPurchase.id,
+        date,
+        location,
+        sku: pItem.sku,
+        itemName,
+        qty,
+        value,
+        pricePerQty,
+        supplierId
+      };
+
       setPurchases(purchases.map(p => p.id === editingPurchase.id ? newPurchase : p));
       showNotification('success', `Data pembelian berhasil diubah.`);
     } else {
-      setPurchases([...purchases, newPurchase]);
-      showNotification('success', `Data pembelian berhasil ditambahkan.`);
+      const newPurchases: Purchase[] = [];
+      
+      for (const pItem of purchaseItems) {
+        if (!pItem.sku || !pItem.qty || !pItem.value) continue;
+        
+        const qty = Number(pItem.qty);
+        const value = Number(pItem.value);
+        const item = items.find(i => i.sku === pItem.sku);
+        const itemName = item?.name || pItem.sku;
+        const pricePerQty = qty > 0 ? value / qty : 0;
+
+        newPurchases.push({
+          id: `PUR${Date.now()}${Math.floor(Math.random() * 1000)}`,
+          date,
+          location,
+          sku: pItem.sku,
+          itemName,
+          qty,
+          value,
+          pricePerQty,
+          supplierId
+        });
+      }
+
+      if (newPurchases.length > 0) {
+        setPurchases([...purchases, ...newPurchases]);
+        showNotification('success', `${newPurchases.length} data pembelian berhasil ditambahkan.`);
+      } else {
+        showNotification('warning', 'Tidak ada data produk yang valid untuk ditambahkan. Pastikan Produk, QTY, dan Nilai sudah diisi.');
+        return;
+      }
     }
     setIsModalOpen(false);
   };
@@ -97,10 +151,18 @@ export const Purchases = () => {
       {
         'Tanggal Beli (YYYY-MM-DD)': '2023-10-01',
         'Lokasi Toko': 'Toko Jakarta',
-        'Produk SKU': 'ITM001',
         'Supplier ID': 'SUP001',
+        'Produk SKU': 'ITM001',
         'QTY Pembelian': 100,
         'Nilai Pembelian (Total)': 5000000
+      },
+      {
+        'Tanggal Beli (YYYY-MM-DD)': '2023-10-01',
+        'Lokasi Toko': 'Toko Jakarta',
+        'Supplier ID': 'SUP001',
+        'Produk SKU': 'ITM002',
+        'QTY Pembelian': 50,
+        'Nilai Pembelian (Total)': 2500000
       }
     ];
     downloadExcel(templateData, 'Template_Data_Pembelian');
@@ -281,17 +343,6 @@ export const Purchases = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Produk</label>
-                  <SearchableSelect
-                    name="sku"
-                    required
-                    value={selectedSku}
-                    onChange={setSelectedSku}
-                    placeholder="Pilih Produk"
-                    options={items.map(item => ({ value: item.sku, label: `${item.sku} - ${item.name}` }))}
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
                   <SearchableSelect
                     name="supplierId"
@@ -302,13 +353,67 @@ export const Purchases = () => {
                     options={suppliers.map(sup => ({ value: sup.id, label: sup.name }))}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">QTY Pembelian</label>
-                  <input name="qty" required type="number" defaultValue={editingPurchase?.qty} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B2D72]/20 focus:border-[#0B2D72]" />
+              </div>
+
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3 border-b pb-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Daftar Produk</h3>
+                  {!editingPurchase && (
+                    <button 
+                      type="button" 
+                      onClick={handleAddPurchaseItem}
+                      className="text-xs flex items-center gap-1 text-[#0B2D72] hover:text-blue-800 font-medium"
+                    >
+                      <Plus size={14} /> Tambah Produk
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nilai Pembelian (Total)</label>
-                  <input name="value" required type="number" defaultValue={editingPurchase?.value} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B2D72]/20 focus:border-[#0B2D72]" />
+                
+                <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+                  {purchaseItems.map((pItem, index) => (
+                    <div key={pItem.id} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start bg-gray-50 p-3 rounded-xl border border-gray-100 relative">
+                      <div className="sm:col-span-5">
+                        <label className="block text-xs text-gray-500 mb-1">Produk</label>
+                        <SearchableSelect
+                          value={pItem.sku}
+                          onChange={(val) => handlePurchaseItemChange(pItem.id, 'sku', val)}
+                          placeholder="Pilih Produk"
+                          options={items.map(item => ({ value: item.sku, label: `${item.sku} - ${item.name}` }))}
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs text-gray-500 mb-1">QTY</label>
+                        <input 
+                          type="number" 
+                          required 
+                          value={pItem.qty}
+                          onChange={(e) => handlePurchaseItemChange(pItem.id, 'qty', e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B2D72]/20 focus:border-[#0B2D72]" 
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs text-gray-500 mb-1">Nilai (Total)</label>
+                        <input 
+                          type="number" 
+                          required 
+                          value={pItem.value}
+                          onChange={(e) => handlePurchaseItemChange(pItem.id, 'value', e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B2D72]/20 focus:border-[#0B2D72]" 
+                        />
+                      </div>
+                      {!editingPurchase && purchaseItems.length > 1 && (
+                        <div className="sm:col-span-1 flex justify-end sm:justify-center sm:pt-6">
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemovePurchaseItem(pItem.id)}
+                            className="p-1.5 text-red-500 hover:bg-red-100 rounded-md transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

@@ -1,13 +1,28 @@
+import { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Store, TrendingUp, Users } from 'lucide-react';
+import { Store, TrendingUp, Users, Calendar } from 'lucide-react';
 
 export const Dashboard = () => {
   const { locations, purchases, suppliers, items, competitors } = useAppContext();
 
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const filteredPurchases = useMemo(() => {
+    let filtered = purchases;
+    if (startDate) {
+      filtered = filtered.filter(p => p.date >= startDate);
+    }
+    if (endDate) {
+      filtered = filtered.filter(p => p.date <= endDate);
+    }
+    return filtered;
+  }, [purchases, startDate, endDate]);
+
   // Aggregate purchases per location
   const purchasesByLocation = locations.map(loc => {
-    const total = purchases
+    const total = filteredPurchases
       .filter(p => p.location === loc)
       .reduce((sum, p) => sum + p.value, 0);
     return { name: loc, total };
@@ -22,7 +37,7 @@ export const Dashboard = () => {
   // Aggregate purchases by category
   const categoryStats: Record<string, { qty: number; value: number }> = {};
   
-  purchases.forEach(p => {
+  filteredPurchases.forEach(p => {
     const item = items.find(i => i.sku === p.sku);
     const category = item?.category || 'Uncategorized';
     
@@ -39,8 +54,8 @@ export const Dashboard = () => {
     value: stats.value
   })).sort((a, b) => b.qty - a.qty);
 
-  const totalPurchases = purchases.reduce((sum, p) => sum + p.value, 0);
-  const activeSuppliers = new Set(purchases.map(p => p.supplierId)).size;
+  const totalPurchases = filteredPurchases.reduce((sum, p) => sum + p.value, 0);
+  const activeSuppliers = new Set(filteredPurchases.map(p => p.supplierId)).size;
 
   // Pricing Index where own price is higher than competitor (index < 1)
   const higherPricedItems = competitors
@@ -55,10 +70,34 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-[#0B2D72]">Dashboard</h1>
-        <div className="text-sm text-gray-500 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
-          Overview & Analytics
+        <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 px-2">
+            <Calendar size={16} className="text-gray-400" />
+            <span className="text-sm font-medium text-gray-600">Filter Tanggal:</span>
+          </div>
+          <input 
+            type="date" 
+            className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0B2D72]/20 focus:border-[#0B2D72]"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <span className="text-gray-400">-</span>
+          <input 
+            type="date" 
+            className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0B2D72]/20 focus:border-[#0B2D72]"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+          {(startDate || endDate) && (
+            <button 
+              onClick={() => { setStartDate(''); setEndDate(''); }}
+              className="text-xs text-red-500 hover:text-red-700 px-2 font-medium"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
