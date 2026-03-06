@@ -35,6 +35,20 @@ export interface Purchase {
   value: number;
   pricePerQty: number;
   supplierId: string;
+  poId?: string;
+  poQty?: number;
+}
+
+export interface PurchaseOrderItem {
+  sku: string;
+  qty: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  date: string;
+  location: StoreLocation;
+  items: PurchaseOrderItem[];
 }
 
 export interface Competitor {
@@ -68,6 +82,7 @@ interface AppContextType {
   suppliers: Supplier[];
   items: Item[];
   purchases: Purchase[];
+  purchaseOrders: PurchaseOrder[];
   competitors: CompetitorPrice[];
   competitorList: Competitor[];
   salesData: SalesData[];
@@ -78,6 +93,7 @@ interface AppContextType {
   setSuppliers: (suppliers: Supplier[]) => void;
   setItems: (items: Item[]) => void;
   setPurchases: (purchases: Purchase[]) => void;
+  setPurchaseOrders: (orders: PurchaseOrder[]) => void;
   setCompetitors: (competitors: CompetitorPrice[]) => void;
   setCompetitorList: (competitors: Competitor[]) => void;
   setSalesData: (salesData: SalesData[]) => void;
@@ -92,6 +108,8 @@ const defaultItems: Item[] = [];
 
 const defaultPurchases: Purchase[] = [];
 
+const defaultPurchaseOrders: PurchaseOrder[] = [];
+
 const defaultCompetitorList: Competitor[] = [];
 
 const defaultCompetitors: CompetitorPrice[] = [];
@@ -100,11 +118,37 @@ const defaultSalesData: SalesData[] = [];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+export const parseSafeNumber = (val: any) => {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  
+  let str = String(val).trim();
+  if (!str) return 0;
+  
+  // Handle Indonesian format: 1.000.000,50 -> 1000000.50
+  // If it has both . and , assume . is thousand and , is decimal
+  if (str.includes('.') && str.includes(',')) {
+    str = str.replace(/\./g, '').replace(',', '.');
+  } else if (str.includes(',')) {
+    // If it only has , it might be decimal (Indonesian) or thousand (US)
+    // We assume decimal if it looks like a decimal
+    if (str.split(',')[1]?.length <= 2) {
+      str = str.replace(',', '.');
+    } else {
+      str = str.replace(',', '');
+    }
+  }
+  
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+};
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [locations, setLocationsState] = useState<StoreLocation[]>(defaultLocations);
   const [suppliers, setSuppliersState] = useState<Supplier[]>(defaultSuppliers);
   const [items, setItemsState] = useState<Item[]>(defaultItems);
   const [purchases, setPurchasesState] = useState<Purchase[]>(defaultPurchases);
+  const [purchaseOrders, setPurchaseOrdersState] = useState<PurchaseOrder[]>(defaultPurchaseOrders);
   const [competitors, setCompetitorsState] = useState<CompetitorPrice[]>(defaultCompetitors);
   const [competitorList, setCompetitorListState] = useState<Competitor[]>(defaultCompetitorList);
   const [salesData, setSalesDataState] = useState<SalesData[]>(defaultSalesData);
@@ -125,18 +169,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           setTimeout(() => setDbStatus('idle'), 3000);
 
           if (data.locations && data.locations.length > 0) {
-            setLocationsState(data.locations.map((l: any) => l.Name));
+            setLocationsState(data.locations.map((l: any) => String(l.Name || '').trim()).filter(Boolean));
           }
           if (data.suppliers && data.suppliers.length > 0) {
             setSuppliersState(data.suppliers.map((s: any) => ({
               ...s,
-              top: Number(s.top)
+              id: String(s.id || '').trim(),
+              name: String(s.name || '').trim(),
+              top: parseSafeNumber(s.top)
             })));
           }
           if (data.items && data.items.length > 0) {
             setItemsState(data.items.map((item: any) => ({
               ...item,
-              hpp: Number(item.hpp),
+              sku: String(item.sku || '').trim(),
+              name: String(item.name || '').trim(),
+              hpp: parseSafeNumber(item.hpp),
               prices: typeof item.prices === 'string' ? JSON.parse(item.prices) : item.prices,
               suppliers: typeof item.suppliers === 'string' ? JSON.parse(item.suppliers) : item.suppliers,
             })));
@@ -144,18 +192,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           if (data.purchases && data.purchases.length > 0) {
             setPurchasesState(data.purchases.map((p: any) => ({
               ...p,
-              qty: Number(p.qty),
-              value: Number(p.value),
-              pricePerQty: Number(p.pricePerQty)
+              id: String(p.id || '').trim(),
+              location: String(p.location || '').trim(),
+              sku: String(p.sku || '').trim(),
+              qty: parseSafeNumber(p.qty),
+              value: parseSafeNumber(p.value),
+              pricePerQty: parseSafeNumber(p.pricePerQty),
+              poQty: p.poQty ? parseSafeNumber(p.poQty) : undefined
+            })));
+          }
+          if (data.purchaseOrders && data.purchaseOrders.length > 0) {
+            setPurchaseOrdersState(data.purchaseOrders.map((po: any) => ({
+              ...po,
+              id: String(po.id || '').trim(),
+              items: typeof po.items === 'string' ? JSON.parse(po.items) : po.items
             })));
           }
           if (data.competitors && data.competitors.length > 0) {
             setCompetitorsState(data.competitors.map((c: any) => ({
               ...c,
-              competitorPrice: Number(c.competitorPrice),
-              ownPrice: Number(c.ownPrice),
-              hpp: Number(c.hpp),
-              pricingIndex: Number(c.pricingIndex)
+              competitorPrice: parseSafeNumber(c.competitorPrice),
+              ownPrice: parseSafeNumber(c.ownPrice),
+              hpp: parseSafeNumber(c.hpp),
+              pricingIndex: parseSafeNumber(c.pricingIndex)
             })));
           }
           if (data.competitorList && data.competitorList.length > 0) {
@@ -164,7 +223,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           if (data.salesData && data.salesData.length > 0) {
             setSalesDataState(data.salesData.map((s: any) => ({
               ...s,
-              qty: Number(s.qty)
+              qty: parseSafeNumber(s.qty)
             })));
           }
         } else if (data && data.error) {
@@ -202,6 +261,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     syncToGoogleSheets('syncPurchases', newPurchases);
   };
 
+  const setPurchaseOrders = (newOrders: PurchaseOrder[]) => {
+    setPurchaseOrdersState(newOrders);
+    syncToGoogleSheets('syncPurchaseOrders', newOrders);
+  };
+
   const setCompetitors = (newCompetitors: CompetitorPrice[]) => {
     setCompetitorsState(newCompetitors);
     syncToGoogleSheets('syncCompetitors', newCompetitors);
@@ -236,7 +300,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AppContext.Provider value={{ locations, suppliers, items, purchases, competitors, competitorList, salesData, notification, dbStatus, dbMessage, setLocations, setSuppliers, setItems, setPurchases, setCompetitors, setCompetitorList, setSalesData, showNotification }}>
+    <AppContext.Provider value={{ locations, suppliers, items, purchases, purchaseOrders, competitors, competitorList, salesData, notification, dbStatus, dbMessage, setLocations, setSuppliers, setItems, setPurchases, setPurchaseOrders, setCompetitors, setCompetitorList, setSalesData, showNotification }}>
       {children}
     </AppContext.Provider>
   );

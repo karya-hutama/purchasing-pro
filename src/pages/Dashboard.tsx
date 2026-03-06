@@ -21,41 +21,61 @@ export const Dashboard = () => {
   }, [purchases, startDate, endDate]);
 
   // Aggregate purchases per location
-  const purchasesByLocation = locations.map(loc => {
-    const total = filteredPurchases
-      .filter(p => p.location === loc)
-      .reduce((sum, p) => sum + p.value, 0);
-    return { name: loc, total };
-  });
+  const purchasesByLocation = useMemo(() => {
+    return locations.map(loc => {
+      const total = filteredPurchases
+        .filter(p => p.location === loc)
+        .reduce((sum, p) => {
+          const val = typeof p.value === 'number' && !isNaN(p.value) ? p.value : 0;
+          return sum + val;
+        }, 0);
+      return { name: loc, total };
+    }).sort((a, b) => b.total - a.total);
+  }, [locations, filteredPurchases]);
 
   // Top suppliers by TOP
-  const topSuppliersByTop = [...suppliers]
-    .sort((a, b) => b.top - a.top)
-    .slice(0, 5)
-    .map(s => ({ name: s.name, top: s.top }));
+  const topSuppliersByTop = useMemo(() => {
+    return [...suppliers]
+      .sort((a, b) => b.top - a.top)
+      .slice(0, 5)
+      .map(s => ({ name: s.name, top: s.top }));
+  }, [suppliers]);
 
   // Aggregate purchases by category
-  const categoryStats: Record<string, { qty: number; value: number }> = {};
-  
-  filteredPurchases.forEach(p => {
-    const item = items.find(i => i.sku === p.sku);
-    const category = item?.category || 'Uncategorized';
+  const categoryChartData = useMemo(() => {
+    const stats: Record<string, { qty: number; value: number }> = {};
     
-    if (!categoryStats[category]) {
-      categoryStats[category] = { qty: 0, value: 0 };
-    }
-    categoryStats[category].qty += p.qty;
-    categoryStats[category].value += p.value;
-  });
+    filteredPurchases.forEach(p => {
+      const item = items.find(i => i.sku === p.sku);
+      const category = item?.category || 'Uncategorized';
+      
+      if (!stats[category]) {
+        stats[category] = { qty: 0, value: 0 };
+      }
+      const qty = typeof p.qty === 'number' && !isNaN(p.qty) ? p.qty : 0;
+      const value = typeof p.value === 'number' && !isNaN(p.value) ? p.value : 0;
+      
+      stats[category].qty += qty;
+      stats[category].value += value;
+    });
 
-  const categoryChartData = Object.entries(categoryStats).map(([name, stats]) => ({
-    name,
-    qty: stats.qty,
-    value: stats.value
-  })).sort((a, b) => b.qty - a.qty);
+    return Object.entries(stats).map(([name, stats]) => ({
+      name,
+      qty: stats.qty,
+      value: stats.value
+    })).sort((a, b) => b.qty - a.qty);
+  }, [filteredPurchases, items]);
 
-  const totalPurchases = filteredPurchases.reduce((sum, p) => sum + p.value, 0);
-  const activeSuppliers = new Set(filteredPurchases.map(p => p.supplierId)).size;
+  const totalPurchases = useMemo(() => 
+    filteredPurchases.reduce((sum, p) => {
+      const val = typeof p.value === 'number' && !isNaN(p.value) ? p.value : 0;
+      return sum + val;
+    }, 0)
+  , [filteredPurchases]);
+
+  const activeSuppliers = useMemo(() => 
+    new Set(filteredPurchases.map(p => p.supplierId)).size
+  , [filteredPurchases]);
 
   // Pricing Index where own price is higher than competitor (index < 1)
   const higherPricedItems = competitors
@@ -109,7 +129,7 @@ export const Dashboard = () => {
           </div>
           <div>
             <p className="text-sm text-gray-500 font-medium">Total Pembelian</p>
-            <p className="text-2xl font-bold text-gray-900">Rp {totalPurchases.toLocaleString('id-ID')}</p>
+            <p className="text-2xl font-bold text-gray-900">Rp {(totalPurchases || 0).toLocaleString('id-ID')}</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
@@ -240,16 +260,27 @@ export const Dashboard = () => {
 
       {/* Store Locations List */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Daftar Lokasi Toko</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Total Pembelian per Lokasi Toko</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {locations.map((loc, idx) => (
-            <div key={idx} className="flex items-center space-x-3 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 transition-colors">
-              <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-[#0B2D72]">
-                <Store size={18} />
+          {purchasesByLocation.map((locData, idx) => (
+            <div key={idx} className="flex flex-col p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 transition-colors">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-[#0B2D72]">
+                  <Store size={16} />
+                </div>
+                <span className="font-semibold text-gray-800">{locData.name}</span>
               </div>
-              <span className="font-medium text-gray-700">{loc}</span>
+              <div className="mt-1">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Total Nominal</p>
+                <p className="text-lg font-bold text-[#0B2D72]">Rp {(locData.total || 0).toLocaleString('id-ID')}</p>
+              </div>
             </div>
           ))}
+          {purchasesByLocation.length === 0 && (
+            <div className="col-span-full p-8 text-center text-gray-500 italic">
+              Belum ada data lokasi atau pembelian.
+            </div>
+          )}
         </div>
       </div>
     </div>

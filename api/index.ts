@@ -97,6 +97,8 @@ app.post(["/api/sync", "/sync"], async (req, res) => {
       cachedData.competitors = data;
     } else if (action === 'syncPurchases') {
       cachedData.purchases = data;
+    } else if (action === 'syncPurchaseOrders') {
+      cachedData.purchaseOrders = data;
     } else if (action === 'syncSalesData') {
       cachedData.salesData = data;
     }

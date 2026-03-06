@@ -1,5 +1,5 @@
 import { useState, FormEvent, useRef, ChangeEvent } from 'react';
-import { useAppContext, Purchase } from '../context/AppContext';
+import { useAppContext, Purchase, parseSafeNumber } from '../context/AppContext';
 import { Plus, Edit2, Trash2, Upload, Search, Download, X } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { downloadExcel, uploadExcel } from '../utils/excel';
@@ -15,12 +15,18 @@ export const Purchases = () => {
 
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState('');
+  const [selectedPO, setSelectedPO] = useState('');
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   
+  const { purchaseOrders } = useAppContext();
+
   interface PurchaseItemForm {
     id: string;
     sku: string;
     qty: string;
     value: string;
+    poQty?: number;
   }
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItemForm[]>([{ id: '1', sku: '', qty: '', value: '' }]);
 
@@ -46,7 +52,14 @@ export const Purchases = () => {
     setEditingPurchase(purchase);
     setSelectedLocation(purchase.location);
     setSelectedSupplier(purchase.supplierId);
-    setPurchaseItems([{ id: '1', sku: purchase.sku, qty: String(purchase.qty), value: String(purchase.value) }]);
+    setSelectedPO(purchase.poId || '');
+    setPurchaseItems([{ 
+      id: '1', 
+      sku: purchase.sku, 
+      qty: String(purchase.qty), 
+      value: String(purchase.value),
+      poQty: purchase.poQty
+    }]);
     setIsModalOpen(true);
   };
 
@@ -54,8 +67,25 @@ export const Purchases = () => {
     setEditingPurchase(null);
     setSelectedLocation('');
     setSelectedSupplier('');
+    setSelectedPO('');
     setPurchaseItems([{ id: '1', sku: '', qty: '', value: '' }]);
     setIsModalOpen(true);
+  };
+
+  const handlePOChange = (poId: string) => {
+    setSelectedPO(poId);
+    const po = purchaseOrders.find(p => p.id === poId);
+    if (po) {
+      setSelectedLocation(po.location);
+      const newItems = po.items.map(item => ({
+        id: Math.random().toString(),
+        sku: item.sku,
+        qty: String(item.qty), // Default realization to PO QTY
+        value: '',
+        poQty: item.qty
+      }));
+      setPurchaseItems(newItems);
+    }
   };
 
   const handleAddPurchaseItem = () => {
@@ -131,7 +161,9 @@ export const Purchases = () => {
           qty,
           value,
           pricePerQty,
-          supplierId
+          supplierId,
+          poId: selectedPO || undefined,
+          poQty: pItem.poQty
         });
       }
 
@@ -154,7 +186,9 @@ export const Purchases = () => {
         'Supplier ID': 'SUP001',
         'Produk SKU': 'ITM001',
         'QTY Pembelian': 100,
-        'Nilai Pembelian (Total)': 5000000
+        'Nilai Pembelian (Total)': 5000000,
+        'ID Dokumen PO': 'PO-202310-001',
+        'QTY PO': 100
       },
       {
         'Tanggal Beli (YYYY-MM-DD)': '2023-10-01',
@@ -162,7 +196,9 @@ export const Purchases = () => {
         'Supplier ID': 'SUP001',
         'Produk SKU': 'ITM002',
         'QTY Pembelian': 50,
-        'Nilai Pembelian (Total)': 2500000
+        'Nilai Pembelian (Total)': 2500000,
+        'ID Dokumen PO': 'PO-202310-001',
+        'QTY PO': 50
       }
     ];
     downloadExcel(templateData, 'Template_Data_Pembelian');
@@ -180,8 +216,10 @@ export const Purchases = () => {
         const location = row['Lokasi Toko'];
         const sku = row['Produk SKU'];
         const supplierId = row['Supplier ID'];
-        const qty = Number(row['QTY Pembelian']);
-        const value = Number(row['Nilai Pembelian (Total)']);
+        const qty = parseSafeNumber(row['QTY Pembelian']);
+        const value = parseSafeNumber(row['Nilai Pembelian (Total)']);
+        const poId = row['ID Dokumen PO'];
+        const poQty = row['QTY PO'] ? parseSafeNumber(row['QTY PO']) : undefined;
         
         if (!date || !location || !sku || !supplierId || !qty || !value) return;
 
@@ -198,7 +236,9 @@ export const Purchases = () => {
           qty,
           value,
           pricePerQty,
-          supplierId: String(supplierId)
+          supplierId: String(supplierId),
+          poId: poId ? String(poId) : undefined,
+          poQty: poQty
         });
       });
 
@@ -267,7 +307,8 @@ export const Purchases = () => {
                 <th className="p-4 font-semibold">Tanggal Beli</th>
                 <th className="p-4 font-semibold">Lokasi Toko</th>
                 <th className="p-4 font-semibold">Barang</th>
-                <th className="p-4 font-semibold text-right">QTY</th>
+                <th className="p-4 font-semibold text-right">QTY PO</th>
+                <th className="p-4 font-semibold text-right">Realisasi QTY</th>
                 <th className="p-4 font-semibold text-right">Harga / QTY</th>
                 <th className="p-4 font-semibold text-right">Nilai Pembelian</th>
                 <th className="p-4 font-semibold">Supplier</th>
@@ -283,8 +324,10 @@ export const Purchases = () => {
                     <div className="flex flex-col">
                       <span className="font-medium text-gray-900">{purchase.itemName}</span>
                       <span className="text-xs text-gray-500 font-mono">{purchase.sku}</span>
+                      {purchase.poId && <span className="text-[10px] text-blue-600 font-bold">PO: {purchase.poId}</span>}
                     </div>
                   </td>
+                  <td className="p-4 text-right text-gray-500">{purchase.poQty?.toLocaleString('id-ID') || '-'}</td>
                   <td className="p-4 text-right text-gray-900 font-medium">{purchase.qty.toLocaleString('id-ID')}</td>
                   <td className="p-4 text-right text-gray-600">Rp {purchase.pricePerQty.toLocaleString('id-ID')}</td>
                   <td className="p-4 text-right text-gray-900 font-semibold">Rp {purchase.value.toLocaleString('id-ID')}</td>
@@ -326,6 +369,55 @@ export const Purchases = () => {
               </button>
             </div>
             <div className="p-6 space-y-4">
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                <h3 className="text-xs font-bold text-blue-700 uppercase mb-3">Pilih Purchase Order (Opsional)</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-blue-600 mb-1">Bulan</label>
+                    <select 
+                      value={filterMonth} 
+                      onChange={(e) => setFilterMonth(Number(e.target.value))}
+                      className="w-full px-2 py-1.5 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>{new Date(0, i).toLocaleString('id-ID', { month: 'long' })}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-blue-600 mb-1">Tahun</label>
+                    <select 
+                      value={filterYear} 
+                      onChange={(e) => setFilterYear(Number(e.target.value))}
+                      className="w-full px-2 py-1.5 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <option key={i} value={new Date().getFullYear() - 2 + i}>{new Date().getFullYear() - 2 + i}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-blue-600 mb-1">ID Dokumen PO</label>
+                    <select 
+                      value={selectedPO} 
+                      onChange={(e) => handlePOChange(e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="">-- Tanpa PO --</option>
+                      {purchaseOrders
+                        .filter(po => {
+                          const poDate = new Date(po.date);
+                          return poDate.getMonth() + 1 === filterMonth && poDate.getFullYear() === filterYear;
+                        })
+                        .map(po => (
+                          <option key={po.id} value={po.id}>{po.id} ({po.location})</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Beli</label>
@@ -381,8 +473,10 @@ export const Purchases = () => {
                           options={items.map(item => ({ value: item.sku, label: `${item.sku} - ${item.name}` }))}
                         />
                       </div>
-                      <div className="sm:col-span-3">
-                        <label className="block text-xs text-gray-500 mb-1">QTY</label>
+                      <div className="sm:col-span-4">
+                        <label className="block text-xs text-gray-500 mb-1">
+                          {pItem.poQty ? `Realisasi QTY (PO: ${pItem.poQty})` : 'QTY'}
+                        </label>
                         <input 
                           type="number" 
                           required 
@@ -391,7 +485,7 @@ export const Purchases = () => {
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B2D72]/20 focus:border-[#0B2D72]" 
                         />
                       </div>
-                      <div className="sm:col-span-3">
+                      <div className="sm:col-span-4">
                         <label className="block text-xs text-gray-500 mb-1">Nilai (Total)</label>
                         <input 
                           type="number" 

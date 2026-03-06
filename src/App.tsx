@@ -13,6 +13,7 @@ import { Items } from './pages/Items';
 import { Suppliers } from './pages/Suppliers';
 import { PricingIndex } from './pages/PricingIndex';
 import { Purchases } from './pages/Purchases';
+import { PurchaseOrders } from './pages/PurchaseOrders';
 import { CompetitorList } from './pages/CompetitorList';
 import { Forecast } from './pages/Forecast';
 
@@ -35,6 +36,8 @@ export default function App() {
         return <CompetitorList />;
       case 'purchases':
         return <Purchases />;
+      case 'purchase-orders':
+        return <PurchaseOrders />;
       case 'forecast':
         return <Forecast />;
       default:

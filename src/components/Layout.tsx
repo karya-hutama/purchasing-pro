@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { LayoutDashboard, Package, Users, TrendingUp, ShoppingCart, Store, CheckCircle2, AlertTriangle, Building2, Menu, X, LineChart } from 'lucide-react';
+import { LayoutDashboard, Package, Users, TrendingUp, ShoppingCart, Store, CheckCircle2, AlertTriangle, Building2, Menu, X, LineChart, FileText } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 interface SidebarProps {
@@ -18,6 +18,7 @@ export const Sidebar = ({ currentPath, onNavigate, isOpen, setIsOpen }: SidebarP
     { id: 'competitors', label: 'Daftar Kompetitor', icon: Building2 },
     { id: 'pricing', label: 'Pricing Index', icon: TrendingUp },
     { id: 'purchases', label: 'Data Pembelian', icon: ShoppingCart },
+    { id: 'purchase-orders', label: 'Purchase Order', icon: FileText },
     { id: 'forecast', label: 'Forecast', icon: LineChart },
   ];
 
